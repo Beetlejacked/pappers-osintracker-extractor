@@ -259,9 +259,16 @@
     };
 
     // Extraire le SIREN depuis l'URL
-    const urlMatch = window.location.href.match(/entreprise\/[^-]+-(\d+)/);
+    // Format: /entreprise/nom-entreprise-123456789 ou /entreprise/nom-avec-plusieurs-tirets-123456789
+    const urlMatch = window.location.href.match(/entreprise\/[^/]+-(\d{9})/);
     if (urlMatch) {
       data.siren = urlMatch[1];
+    } else {
+      // Essayer un autre format si le premier ne fonctionne pas
+      const urlMatch2 = window.location.href.match(/-(\d{9})(?:\?|$)/);
+      if (urlMatch2) {
+        data.siren = urlMatch2[1];
+      }
     }
 
     // Extraire le nom de l'entreprise
@@ -1305,13 +1312,48 @@
   // Fonction pour essayer de déclencher manuellement l'appel API
   function tryTriggerCartographieAPI() {
     // Extraire le SIREN de l'URL
-    const urlMatch = window.location.href.match(/entreprise\/[^-]+-(\d+)/);
-    if (!urlMatch) {
-      console.log('❌ Impossible d\'extraire le SIREN de l\'URL');
-      return;
+    // Format: /entreprise/nom-entreprise-123456789 ou /entreprise/nom-avec-plusieurs-tirets-123456789
+    let siren = null;
+    const urlMatch = window.location.href.match(/entreprise\/[^/]+-(\d{9})/);
+    if (urlMatch) {
+      siren = urlMatch[1];
+    } else {
+      // Essayer un autre format si le premier ne fonctionne pas
+      const urlMatch2 = window.location.href.match(/-(\d{9})(?:\?|$)/);
+      if (urlMatch2) {
+        siren = urlMatch2[1];
+      }
     }
     
-    const siren = urlMatch[1];
+    // Si l'extraction depuis l'URL échoue, essayer d'extraire depuis le DOM
+    if (!siren) {
+      console.log('⚠️ SIREN non trouvé dans l\'URL, tentative d\'extraction depuis le DOM...');
+      
+      // Chercher le SIREN dans les informations juridiques déjà extraites
+      const juridiqueSection = document.querySelector('section, div, [class*="juridique"], [class*="information"]');
+      if (juridiqueSection) {
+        const sirenMatch = juridiqueSection.textContent.match(/SIREN\s*:\s*(\d{9})/i);
+        if (sirenMatch) {
+          siren = sirenMatch[1];
+          console.log('✅ SIREN trouvé dans le DOM:', siren);
+        }
+      }
+      
+      // Si toujours pas trouvé, chercher dans tout le document
+      if (!siren) {
+        const allText = document.body.textContent;
+        const sirenMatch = allText.match(/SIREN\s*:\s*(\d{9})/i);
+        if (sirenMatch) {
+          siren = sirenMatch[1];
+          console.log('✅ SIREN trouvé dans le document:', siren);
+        }
+      }
+    }
+    
+    if (!siren) {
+      console.log('❌ Impossible d\'extraire le SIREN');
+      return;
+    }
     
     // Utiliser le token API intercepté ou le token par défaut
     const token = apiToken || '97a405f1664a83329a7d89ebf51dc227b90633c4ba4a2575';
@@ -1381,6 +1423,48 @@
           }
           
           const pageData = extractPageData();
+          
+          // Si le SIREN n'a pas été extrait depuis l'URL mais est disponible dans informations_juridiques, l'utiliser
+          if (!pageData.siren && pageData.informations_juridiques && pageData.informations_juridiques.siren) {
+            pageData.siren = pageData.informations_juridiques.siren;
+            console.log('✅ SIREN récupéré depuis informations_juridiques:', pageData.siren);
+          }
+          
+          // Si les données de cartographie ne sont pas disponibles et qu'on a un SIREN, essayer de déclencher l'API manuellement
+          const hasCartographieData = cartographieData && cartographieData.data && 
+                                      (Array.isArray(cartographieData.data.entreprises) || 
+                                       Array.isArray(cartographieData.data.personnes));
+          if (!hasCartographieData && pageData.siren) {
+            console.log('🔄 Tentative de déclenchement manuel de l\'API avec SIREN:', pageData.siren);
+            // Utiliser le SIREN extrait pour déclencher l'API
+            const token = apiToken || '97a405f1664a83329a7d89ebf51dc227b90633c4ba4a2575';
+            const apiUrl = `https://api.pappers.fr/v2/entreprise/cartographie?api_token=${token}&siren=${pageData.siren}&inclure_entreprises_dirigees=true&inclure_entreprises_citees=false&inclure_sci=true&autoriser_modifications=true`;
+            
+            try {
+              const response = await originalFetch(apiUrl, {
+                method: 'GET',
+                headers: {
+                  'Accept': 'application/json',
+                  'Content-Type': 'application/json'
+                }
+              });
+              
+              if (response.ok) {
+                const data = await response.json();
+                cartographieData = {
+                  url: apiUrl,
+                  data: data,
+                  timestamp: new Date().toISOString(),
+                  method: 'GET',
+                  triggered_manually: true
+                };
+                console.log('✅ Appel API de cartographie réussi avec SIREN extrait');
+              }
+            } catch (error) {
+              console.log('❌ Échec de l\'appel API manuel avec SIREN extrait:', error.message);
+            }
+          }
+          
           console.log('=== FIN EXTRACTION ===');
           console.log('Données extraites:', pageData);
           

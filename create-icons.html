@@ -90,7 +90,7 @@
   <div class="container">
     <h1>🎨 Générateur d'icônes Pappers</h1>
     <div class="info">
-      <p>Ce générateur charge l'image <strong>papposint.webp</strong> et crée les icônes aux différentes tailles nécessaires pour l'extension Chrome.</p>
+      <p>Ce générateur charge l'image <strong>papposint.png</strong> et crée les icônes aux différentes tailles nécessaires pour l'extension Chrome.</p>
     </div>
     
     <div id="status" class="status loading">
@@ -113,6 +113,13 @@
       </div>
       
       <div class="icon-preview">
+        <h3>Icône 38x38 (Barre d'outils)</h3>
+        <canvas id="icon38" width="38" height="38"></canvas>
+        <br>
+        <button onclick="downloadIcon(38)">Télécharger icon38.png</button>
+      </div>
+      
+      <div class="icon-preview">
         <h3>Icône 128x128</h3>
         <canvas id="icon128" width="128" height="128"></canvas>
         <br>
@@ -127,7 +134,7 @@
 
   <script>
     let sourceImage = null;
-    const sizes = [16, 48, 128];
+    const sizes = [16, 38, 48, 128];
 
     function updateStatus(message, type) {
       const status = document.getElementById('status');
@@ -141,16 +148,17 @@
       // Effacer le canvas
       ctx.clearRect(0, 0, size, size);
       
-      // Calculer les dimensions pour garder les proportions
+      // Calculer les dimensions pour remplir le canvas (agrandir l'image)
       let width = img.width;
       let height = img.height;
-      const maxDimension = Math.max(width, height);
-      const scale = size / maxDimension;
+      const minDimension = Math.min(width, height);
+      // Utiliser Math.min pour agrandir l'image jusqu'à ce que le côté le plus petit remplisse le canvas
+      const scale = size / minDimension;
       
       const scaledWidth = width * scale;
       const scaledHeight = height * scale;
       
-      // Centrer l'image
+      // Centrer l'image (les parties qui dépassent seront coupées)
       const x = (size - scaledWidth) / 2;
       const y = (size - scaledHeight) / 2;
       
@@ -210,11 +218,11 @@
       };
       
       img.onerror = function() {
-        updateStatus('❌ Erreur: Impossible de charger papposint.webp. Assurez-vous que le fichier est dans le même dossier que ce fichier HTML.', 'error');
+        updateStatus('❌ Erreur: Impossible de charger papposint.png. Assurez-vous que le fichier est dans le même dossier que ce fichier HTML.', 'error');
       };
       
       // Charger l'image depuis le même répertoire
-      img.src = 'papposint.webp';
+      img.src = 'papposint.png';
     };
   </script>
 </body>

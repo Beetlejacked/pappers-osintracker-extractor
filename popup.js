@@ -21,6 +21,17 @@ document.addEventListener('DOMContentLoaded', () => {
     return JSON.stringify(data, null, 2);
   }
 
+  // Fonction pour normaliser un nom de fichier (enlever caractères spéciaux, espaces, etc.)
+  function sanitizeFilename(name) {
+    if (!name) return '';
+    return name
+      .replace(/[<>:"/\\|?*]/g, '') // Enlever les caractères interdits dans les noms de fichiers
+      .replace(/\s+/g, '-') // Remplacer les espaces par des tirets
+      .replace(/-+/g, '-') // Remplacer les tirets multiples par un seul
+      .replace(/^-+|-+$/g, '') // Enlever les tirets en début/fin
+      .substring(0, 50); // Limiter la longueur
+  }
+
   // Fonction pour télécharger le JSON
   function downloadJSON(data, filename = 'pappers-data.json') {
     const jsonStr = formatJSON(data);
@@ -71,11 +82,78 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // Fonction pour normaliser un nom (enlever accents, espaces, mettre en minuscule)
+  function normalizeName(name) {
+    if (!name) return '';
+    return name
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '') // Enlever les accents
+      .replace(/\s+/g, ' ') // Normaliser les espaces
+      .trim();
+  }
+
+  // Fonction pour comparer deux noms (gère les variations de format)
+  function isSamePerson(name1, name2) {
+    if (!name1 || !name2) return false;
+    const norm1 = normalizeName(name1);
+    const norm2 = normalizeName(name2);
+    
+    // Comparaison exacte
+    if (norm1 === norm2) return true;
+    
+    // Extraire les parties du nom (prénom, nom, etc.)
+    const parts1 = norm1.split(' ').filter(p => p.length > 0);
+    const parts2 = norm2.split(' ').filter(p => p.length > 0);
+    
+    // Si les deux noms ont le même nombre de parties
+    if (parts1.length === parts2.length && parts1.length >= 2) {
+      // Comparaison avec inversion prénom/nom (ex: "Rivat Philippe" vs "Philippe Rivat")
+      if (parts1.length === 2) {
+        if ((parts1[0] === parts2[1] && parts1[1] === parts2[0]) ||
+            (parts1[0] === parts2[0] && parts1[1] === parts2[1])) {
+          return true;
+        }
+      }
+      
+      // Pour les noms avec plusieurs parties, vérifier si toutes les parties sont présentes
+      // (peut gérer les cas avec prénom composé ou nom composé)
+      const allPartsMatch = parts1.every(p => parts2.includes(p)) && 
+                           parts2.every(p => parts1.includes(p));
+      if (allPartsMatch && parts1.length === parts2.length) {
+        return true;
+      }
+    }
+    
+    // Comparaison partielle : si un nom contient toutes les parties de l'autre
+    // (ex: "Philippe Rivat" vs "Rivat Philippe" ou "Philippe Jean Rivat")
+    if (parts1.length >= 2 && parts2.length >= 2) {
+      // Vérifier si les deux premiers mots (prénom) ou les deux derniers (nom) correspondent
+      const firstParts1 = parts1.slice(0, 2).sort().join(' ');
+      const firstParts2 = parts2.slice(0, 2).sort().join(' ');
+      const lastParts1 = parts1.slice(-2).sort().join(' ');
+      const lastParts2 = parts2.slice(-2).sort().join(' ');
+      
+      if (firstParts1 === firstParts2 || lastParts1 === lastParts2) {
+        // Vérifier que les autres parties correspondent aussi
+        const remaining1 = parts1.filter(p => !parts2.slice(0, 2).includes(p) && !parts2.slice(-2).includes(p));
+        const remaining2 = parts2.filter(p => !parts1.slice(0, 2).includes(p) && !parts1.slice(-2).includes(p));
+        if (remaining1.length === 0 && remaining2.length === 0) {
+          return true;
+        }
+      }
+    }
+    
+    return false;
+  }
+
   // Fonction pour convertir les données Pappers au format OSINTracker
   function convertToOSINTracker(pappersData) {
     const entities = [];
     const relations = [];
     const entityMap = new Map(); // Pour stocker les IDs des entités créées
+    const personneMap = new Map(); // Pour stocker les personnes déjà créées (clé: nom normalisé, valeur: UUID)
+    const entrepriseMap = new Map(); // Pour stocker les entreprises déjà créées (clé: SIREN, valeur: UUID)
     const now = Date.now();
 
     // Type IDs OSINTracker (à adapter selon votre configuration)
@@ -94,6 +172,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (pappersData.nom && pappersData.siren) {
       entrepriseMainId = generateUUID();
       entityMap.set('entreprise', entrepriseMainId);
+      entrepriseMap.set(pappersData.siren, entrepriseMainId); // Enregistrer le SIREN pour éviter les doublons
       entities.push({
         id: entrepriseMainId,
         value: `${pappersData.nom} (${pappersData.siren})`,
@@ -109,39 +188,74 @@ document.addEventListener('DOMContentLoaded', () => {
     if (pappersData.dirigeants && Array.isArray(pappersData.dirigeants)) {
       pappersData.dirigeants.forEach(dirigeant => {
         if (dirigeant.nom_complet && !dirigeant.nom_complet.includes('Nos') && !dirigeant.nom_complet.includes('Entreprises')) {
-          const dirigeantId = generateUUID();
-          const key = `dirigeant_${dirigeant.nom_complet}`;
-          entityMap.set(key, dirigeantId);
+          const nomNormalise = normalizeName(dirigeant.nom_complet);
           
-          let comments = '';
-          if (dirigeant.fonction) comments += `Fonction: ${dirigeant.fonction}\n`;
-          if (dirigeant.date_debut) comments += `Depuis: ${dirigeant.date_debut}\n`;
-          if (dirigeant.date_fin) comments += `Jusqu'à: ${dirigeant.date_fin}\n`;
-          if (dirigeant.ancien) comments += 'Ancien dirigeant\n';
+          // Vérifier si cette personne existe déjà
+          let dirigeantId = personneMap.get(nomNormalise);
+          let isNewPerson = false;
+          
+          if (!dirigeantId) {
+            // Créer une nouvelle entité
+            dirigeantId = generateUUID();
+            personneMap.set(nomNormalise, dirigeantId);
+            isNewPerson = true;
+            
+            let comments = '';
+            if (dirigeant.fonction) comments += `Fonction: ${dirigeant.fonction}\n`;
+            if (dirigeant.date_debut) comments += `Depuis: ${dirigeant.date_debut}\n`;
+            if (dirigeant.date_fin) comments += `Jusqu'à: ${dirigeant.date_fin}\n`;
+            if (dirigeant.ancien) comments += 'Ancien dirigeant\n';
+            if (dirigeant.age) comments += `Âge: ${dirigeant.age} ans\n`;
+            if (dirigeant.date_naissance) comments += `Naissance: ${dirigeant.date_naissance}\n`;
 
-          entities.push({
-            id: dirigeantId,
-            value: dirigeant.nom_complet,
-            typeId: TYPE_IDS.PERSONNE,
-            creationDate: now,
-            critical: false,
-            comments: comments.trim() || undefined,
-            url: dirigeant.url || undefined
-          });
-
-          // Créer la relation entreprise -> dirigeant
-          if (entityMap.has('entreprise')) {
-            relations.push({
-              id: generateUUID(),
-              originId: entityMap.get('entreprise'),
-              targetId: dirigeantId,
-              bidirectional: false,
-              label: dirigeant.fonction || 'Dirigeant',
-              comments: dirigeant.ancien ? 'Ancien dirigeant' : '',
-              rating: 2,
+            entities.push({
+              id: dirigeantId,
+              value: dirigeant.nom_complet,
+              typeId: TYPE_IDS.PERSONNE,
+              creationDate: now,
               critical: false,
-              creationDate: now
+              comments: comments.trim() || undefined,
+              url: dirigeant.url || undefined
             });
+          } else {
+            // Personne existe déjà, mettre à jour les commentaires si nécessaire
+            const existingEntity = entities.find(e => e.id === dirigeantId);
+            if (existingEntity) {
+              let existingComments = existingEntity.comments || '';
+              if (dirigeant.fonction && !existingComments.includes('Fonction:')) {
+                existingComments += `\nFonction: ${dirigeant.fonction}`;
+              }
+              if (dirigeant.date_debut && !existingComments.includes('Depuis:')) {
+                existingComments += `\nDepuis: ${dirigeant.date_debut}`;
+              }
+              if (existingComments.trim()) {
+                existingEntity.comments = existingComments.trim();
+              }
+            }
+          }
+
+          // Créer la relation entreprise -> dirigeant (même si la personne existe déjà)
+          if (entityMap.has('entreprise')) {
+            // Vérifier si la relation n'existe pas déjà
+            const relationExists = relations.some(r => 
+              r.originId === entityMap.get('entreprise') && 
+              r.targetId === dirigeantId &&
+              (r.label === (dirigeant.fonction || 'Dirigeant'))
+            );
+            
+            if (!relationExists) {
+              relations.push({
+                id: generateUUID(),
+                originId: entityMap.get('entreprise'),
+                targetId: dirigeantId,
+                bidirectional: false,
+                label: dirigeant.fonction || 'Dirigeant',
+                comments: dirigeant.ancien ? 'Ancien dirigeant' : '',
+                rating: 2,
+                critical: false,
+                creationDate: now
+              });
+            }
           }
         }
       });
@@ -151,32 +265,70 @@ document.addEventListener('DOMContentLoaded', () => {
     if (pappersData.actionnaires && !pappersData.actionnaires.disponible && Array.isArray(pappersData.actionnaires)) {
       pappersData.actionnaires.forEach(actionnaire => {
         if (actionnaire.nom_complet) {
-          const actionnaireId = generateUUID();
-          const key = `actionnaire_${actionnaire.nom_complet}`;
-          entityMap.set(key, actionnaireId);
+          const nomNormalise = normalizeName(actionnaire.nom_complet);
           
-          entities.push({
-            id: actionnaireId,
-            value: actionnaire.nom_complet,
-            typeId: TYPE_IDS.PERSONNE,
-            creationDate: now,
-            critical: false,
-            comments: actionnaire.pourcentage ? `Part: ${actionnaire.pourcentage}` : undefined
-          });
-
-          // Créer la relation entreprise -> actionnaire
-          if (entityMap.has('entreprise')) {
-            relations.push({
-              id: generateUUID(),
-              originId: entityMap.get('entreprise'),
-              targetId: actionnaireId,
-              bidirectional: false,
-              label: 'Actionnaire',
-              comments: actionnaire.pourcentage ? `${actionnaire.pourcentage}%` : '',
-              rating: 2,
+          // Vérifier si cette personne existe déjà
+          let actionnaireId = personneMap.get(nomNormalise);
+          
+          if (!actionnaireId) {
+            // Vérifier aussi avec les variations de format
+            for (const [existingNormName, existingId] of personneMap.entries()) {
+              if (isSamePerson(actionnaire.nom_complet, existingNormName)) {
+                actionnaireId = existingId;
+                break;
+              }
+            }
+          }
+          
+          if (!actionnaireId) {
+            // Créer une nouvelle entité
+            actionnaireId = generateUUID();
+            personneMap.set(nomNormalise, actionnaireId);
+            
+            entities.push({
+              id: actionnaireId,
+              value: actionnaire.nom_complet,
+              typeId: TYPE_IDS.PERSONNE,
+              creationDate: now,
               critical: false,
-              creationDate: now
+              comments: actionnaire.pourcentage ? `Part: ${actionnaire.pourcentage}` : undefined
             });
+          } else {
+            // Personne existe déjà, mettre à jour les commentaires
+            const existingEntity = entities.find(e => e.id === actionnaireId);
+            if (existingEntity) {
+              let existingComments = existingEntity.comments || '';
+              if (actionnaire.pourcentage && !existingComments.includes('Part:')) {
+                existingComments += `\nPart: ${actionnaire.pourcentage}`;
+              }
+              if (existingComments.trim()) {
+                existingEntity.comments = existingComments.trim();
+              }
+            }
+          }
+
+          // Créer la relation entreprise -> actionnaire (même si la personne existe déjà)
+          if (entityMap.has('entreprise')) {
+            // Vérifier si la relation n'existe pas déjà
+            const relationExists = relations.some(r => 
+              r.originId === entityMap.get('entreprise') && 
+              r.targetId === actionnaireId &&
+              r.label === 'Actionnaire'
+            );
+            
+            if (!relationExists) {
+              relations.push({
+                id: generateUUID(),
+                originId: entityMap.get('entreprise'),
+                targetId: actionnaireId,
+                bidirectional: false,
+                label: 'Actionnaire',
+                comments: actionnaire.pourcentage ? `${actionnaire.pourcentage}%` : '',
+                rating: 2,
+                critical: false,
+                creationDate: now
+              });
+            }
           }
         }
       });
@@ -312,37 +464,40 @@ document.addEventListener('DOMContentLoaded', () => {
     if (pappersData.cartographie) {
       // Entreprises de la cartographie
       const cartoEntMap = new Map(); // Map des IDs cartographie (e1, e2...) vers UUIDs
-      const cartoSirenMap = new Map(); // Map des SIREN vers UUIDs pour lier à l'entreprise principale
       if (pappersData.cartographie.entreprises && Array.isArray(pappersData.cartographie.entreprises)) {
         pappersData.cartographie.entreprises.forEach(entreprise => {
           if (entreprise.nom_entreprise && entreprise.siren && entreprise.id) {
-            const cartoEntId = generateUUID();
-            cartoEntMap.set(entreprise.id, cartoEntId);
-            cartoSirenMap.set(entreprise.siren, cartoEntId);
+            // Vérifier si cette entreprise existe déjà (même SIREN que l'entreprise principale)
+            const existingEntId = entrepriseMap.get(entreprise.siren);
             
-            entities.push({
-              id: cartoEntId,
-              value: `${entreprise.nom_entreprise} (${entreprise.siren})`,
-              typeId: TYPE_IDS.ENTREPRISE,
-              creationDate: now,
-              critical: false,
-              comments: `SIREN: ${entreprise.siren}\nSource: Cartographie Pappers`
-            });
-
-            // Si cette entreprise de la cartographie correspond à l'entreprise principale, noter l'ID
-            if (entrepriseMainId && pappersData.siren === entreprise.siren) {
-              entrepriseCartoId = entreprise.id; // Stocker l'ID cartographie de l'entreprise principale
-              // Créer une relation bidirectionnelle entre l'entreprise principale et sa version cartographie
-              relations.push({
-                id: generateUUID(),
-                originId: entrepriseMainId,
-                targetId: cartoEntId,
-                bidirectional: false,
-                label: 'Même entreprise',
-                comments: 'Entreprise principale dans la cartographie',
-                rating: 2,
+            if (existingEntId) {
+              // L'entreprise existe déjà, utiliser son ID au lieu d'en créer une nouvelle
+              cartoEntMap.set(entreprise.id, existingEntId);
+              
+              // Si c'est l'entreprise principale, noter son ID cartographie
+              if (existingEntId === entrepriseMainId) {
+                entrepriseCartoId = entreprise.id;
+              }
+              
+              // Mettre à jour les commentaires de l'entreprise existante
+              const existingEntity = entities.find(e => e.id === existingEntId);
+              if (existingEntity && !existingEntity.comments?.includes('Cartographie')) {
+                const existingComments = existingEntity.comments || '';
+                existingEntity.comments = existingComments + '\nSource: Cartographie Pappers';
+              }
+            } else {
+              // Créer une nouvelle entité entreprise
+              const cartoEntId = generateUUID();
+              cartoEntMap.set(entreprise.id, cartoEntId);
+              entrepriseMap.set(entreprise.siren, cartoEntId); // Enregistrer pour éviter les doublons futurs
+              
+              entities.push({
+                id: cartoEntId,
+                value: `${entreprise.nom_entreprise} (${entreprise.siren})`,
+                typeId: TYPE_IDS.ENTREPRISE,
+                creationDate: now,
                 critical: false,
-                creationDate: now
+                comments: `SIREN: ${entreprise.siren}\nSource: Cartographie Pappers`
               });
             }
           }
@@ -354,21 +509,68 @@ document.addEventListener('DOMContentLoaded', () => {
       if (pappersData.cartographie.personnes && Array.isArray(pappersData.cartographie.personnes)) {
         pappersData.cartographie.personnes.forEach(personne => {
           if (personne.nom && personne.prenom && personne.id) {
-            const cartoPersId = generateUUID();
-            cartoPersMap.set(personne.id, cartoPersId);
+            const nomComplet = `${personne.prenom} ${personne.nom}`;
+            const nomNormalise = normalizeName(nomComplet);
             
-            let comments = '';
-            if (personne.niveau) comments += `Niveau: ${personne.niveau}\n`;
-            if (personne.date_naissance) comments += `Naissance: ${personne.date_naissance}\n`;
+            // Vérifier si cette personne existe déjà (dirigeant, actionnaire, etc.)
+            let cartoPersId = personneMap.get(nomNormalise);
+            let isNewPerson = false;
+            
+            if (!cartoPersId) {
+              // Vérifier aussi avec les variations de format (prénom nom vs nom prénom)
+              for (const [existingNormName, existingId] of personneMap.entries()) {
+                if (isSamePerson(nomComplet, existingNormName)) {
+                  cartoPersId = existingId;
+                  break;
+                }
+              }
+            }
+            
+            if (!cartoPersId) {
+              // Créer une nouvelle entité
+              cartoPersId = generateUUID();
+              personneMap.set(nomNormalise, cartoPersId);
+              isNewPerson = true;
+              
+              let comments = '';
+              if (personne.niveau) comments += `Niveau: ${personne.niveau}\n`;
+              if (personne.date_naissance) comments += `Naissance: ${personne.date_naissance}\n`;
+              comments += 'Source: Cartographie Pappers';
 
-            entities.push({
-              id: cartoPersId,
-              value: `${personne.prenom} ${personne.nom}`,
-              typeId: TYPE_IDS.PERSONNE,
-              creationDate: now,
-              critical: false,
-              comments: comments.trim() || undefined
-            });
+              entities.push({
+                id: cartoPersId,
+                value: nomComplet,
+                typeId: TYPE_IDS.PERSONNE,
+                creationDate: now,
+                critical: false,
+                comments: comments.trim() || undefined
+              });
+            } else {
+              // Personne existe déjà, mettre à jour les commentaires et le nom si nécessaire
+              const existingEntity = entities.find(e => e.id === cartoPersId);
+              if (existingEntity) {
+                // Utiliser le format le plus complet pour le nom (prénom + nom)
+                if (nomComplet.includes(' ') && !existingEntity.value.includes(' ')) {
+                  existingEntity.value = nomComplet;
+                }
+                
+                let existingComments = existingEntity.comments || '';
+                if (personne.niveau && !existingComments.includes('Niveau:')) {
+                  existingComments += `\nNiveau: ${personne.niveau}`;
+                }
+                if (personne.date_naissance && !existingComments.includes('Naissance:')) {
+                  existingComments += `\nNaissance: ${personne.date_naissance}`;
+                }
+                if (!existingComments.includes('Cartographie')) {
+                  existingComments += '\nSource: Cartographie Pappers';
+                }
+                if (existingComments.trim()) {
+                  existingEntity.comments = existingComments.trim();
+                }
+              }
+            }
+            
+            cartoPersMap.set(personne.id, cartoPersId);
           }
         });
       }
@@ -565,9 +767,27 @@ document.addEventListener('DOMContentLoaded', () => {
   exportOsintBtn.addEventListener('click', () => {
     if (extractedData) {
       const osintData = convertToOSINTracker(extractedData);
-      const filename = extractedData.siren 
-        ? `osintracker-${extractedData.siren}-${Date.now()}.json`
-        : `osintracker-data-${Date.now()}.json`;
+      
+      // Construire le nom de fichier avec le nom de la société
+      let filename = '';
+      if (extractedData.nom) {
+        const nomNormalise = sanitizeFilename(extractedData.nom);
+        if (nomNormalise) {
+          filename = `${nomNormalise}-osintracker`;
+        } else {
+          filename = 'osintracker';
+        }
+      } else {
+        filename = 'osintracker';
+      }
+      
+      // Ajouter le SIREN si disponible
+      if (extractedData.siren) {
+        filename += `-${extractedData.siren}`;
+      }
+      
+      // Ajouter le timestamp
+      filename += `-${Date.now()}.json`;
       
       downloadJSON(osintData, filename);
       updateStatus('📊 Exporté au format OSINTracker!', 'success');

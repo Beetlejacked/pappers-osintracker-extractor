@@ -37,6 +37,20 @@ Ou utilisez un générateur d'icônes en ligne pour créer ces fichiers.
 4. Un aperçu JSON s'affichera
 5. Cliquez sur "Télécharger JSON" pour sauvegarder les données
 
+## 📹 Tutoriels
+
+### Utilisation de l'extension
+
+Ce tutoriel montre comment utiliser l'extension pour extraire les données d'une entreprise depuis Pappers.fr :
+
+![Tutoriel - Utilisation de l'extension](tuto/pappers-osintracker.gif)
+
+### Import dans OSINTracker
+
+Ce tutoriel montre comment importer les données extraites dans OSINTracker :
+
+![Tutoriel - Import dans OSINTracker](tuto/import_osintracker.gif)
+
 ## 📋 Données extraites
 
 L'extension extrait les informations suivantes de manière structurée :
