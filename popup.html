@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pappers Info Extractor</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>⚡ PAPPERS OSINT EXTRACTOR</h1>
+    </header>
+    
+    <div class="status" id="status">
+      <p>Prêt à extraire les données</p>
+    </div>
+
+    <div class="actions">
+      <button id="extractBtn" class="btn btn-primary">
+        Extraire les données
+      </button>
+      <button id="downloadBtn" class="btn btn-secondary" disabled>
+        Télécharger JSON
+      </button>
+      <button id="copyBtn" class="btn btn-secondary" disabled>
+        Copier JSON
+      </button>
+      <button id="exportOsintBtn" class="btn btn-secondary" disabled>
+        Exporter OSINTracker
+      </button>
+    </div>
+
+    <div class="preview" id="preview" style="display: none;">
+      <h3>Aperçu des données :</h3>
+      <pre id="jsonPreview"></pre>
+    </div>
+
+    <div class="info">
+      <p><small>Assurez-vous d'être sur une page d'entreprise Pappers</small></p>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
+

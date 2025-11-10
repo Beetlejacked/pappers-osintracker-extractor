@@ -1,0 +1,24 @@
+# Fichiers système
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# Fichiers de l'extension
+*.crx
+*.pem
+*.zip
+
+# Logs
+*.log
+
+# Node modules (si vous ajoutez des dépendances)
+node_modules/
+
+# Fichiers temporaires
+*.tmp
+*.temp
+
+Extractions/*.json
+

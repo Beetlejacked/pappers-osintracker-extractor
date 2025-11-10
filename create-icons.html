@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Générateur d'icônes pour l'extension</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    .container {
+      max-width: 700px;
+      margin: 0 auto;
+      background: white;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    h1 {
+      color: #667eea;
+    }
+    canvas {
+      border: 1px solid #ddd;
+      margin: 10px 0;
+      display: block;
+      background: #f9f9f9;
+    }
+    button {
+      background: #667eea;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 4px;
+      cursor: pointer;
+      margin: 5px;
+      font-size: 14px;
+    }
+    button:hover {
+      background: #5568d3;
+    }
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+    .info {
+      background: #e3f2fd;
+      padding: 15px;
+      border-radius: 4px;
+      margin: 20px 0;
+    }
+    .status {
+      padding: 10px;
+      margin: 10px 0;
+      border-radius: 4px;
+    }
+    .status.success {
+      background: #d4edda;
+      color: #155724;
+    }
+    .status.error {
+      background: #f8d7da;
+      color: #721c24;
+    }
+    .status.loading {
+      background: #fff3cd;
+      color: #856404;
+    }
+    .icon-preview {
+      display: inline-block;
+      margin: 10px;
+      text-align: center;
+    }
+    .icon-preview h3 {
+      margin-bottom: 10px;
+      font-size: 14px;
+    }
+    .download-all {
+      background: #28a745;
+      margin-top: 20px;
+      padding: 12px 24px;
+      font-size: 16px;
+    }
+    .download-all:hover {
+      background: #218838;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🎨 Générateur d'icônes Pappers</h1>
+    <div class="info">
+      <p>Ce générateur charge l'image <strong>papposint.webp</strong> et crée les icônes aux différentes tailles nécessaires pour l'extension Chrome.</p>
+    </div>
+    
+    <div id="status" class="status loading">
+      Chargement de l'image...
+    </div>
+    
+    <div id="icons-container" style="display: none;">
+      <div class="icon-preview">
+        <h3>Icône 16x16</h3>
+        <canvas id="icon16" width="16" height="16"></canvas>
+        <br>
+        <button onclick="downloadIcon(16)">Télécharger icon16.png</button>
+      </div>
+      
+      <div class="icon-preview">
+        <h3>Icône 48x48</h3>
+        <canvas id="icon48" width="48" height="48"></canvas>
+        <br>
+        <button onclick="downloadIcon(48)">Télécharger icon48.png</button>
+      </div>
+      
+      <div class="icon-preview">
+        <h3>Icône 128x128</h3>
+        <canvas id="icon128" width="128" height="128"></canvas>
+        <br>
+        <button onclick="downloadIcon(128)">Télécharger icon128.png</button>
+      </div>
+      
+      <div style="text-align: center; margin-top: 20px;">
+        <button class="download-all" onclick="downloadAllIcons()">📥 Télécharger toutes les icônes</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let sourceImage = null;
+    const sizes = [16, 48, 128];
+
+    function updateStatus(message, type) {
+      const status = document.getElementById('status');
+      status.textContent = message;
+      status.className = `status ${type}`;
+    }
+
+    function resizeImageToCanvas(img, canvas, size) {
+      const ctx = canvas.getContext('2d');
+      
+      // Effacer le canvas
+      ctx.clearRect(0, 0, size, size);
+      
+      // Calculer les dimensions pour garder les proportions
+      let width = img.width;
+      let height = img.height;
+      const maxDimension = Math.max(width, height);
+      const scale = size / maxDimension;
+      
+      const scaledWidth = width * scale;
+      const scaledHeight = height * scale;
+      
+      // Centrer l'image
+      const x = (size - scaledWidth) / 2;
+      const y = (size - scaledHeight) / 2;
+      
+      // Dessiner l'image redimensionnée
+      ctx.drawImage(img, x, y, scaledWidth, scaledHeight);
+    }
+
+    function generateIcons() {
+      if (!sourceImage) {
+        updateStatus('❌ Erreur: Image non chargée', 'error');
+        return;
+      }
+
+      sizes.forEach(size => {
+        const canvas = document.getElementById(`icon${size}`);
+        resizeImageToCanvas(sourceImage, canvas, size);
+      });
+
+      document.getElementById('icons-container').style.display = 'block';
+      updateStatus('✅ Icônes générées avec succès!', 'success');
+    }
+
+    function downloadIcon(size) {
+      const canvas = document.getElementById(`icon${size}`);
+      canvas.toBlob(function(blob) {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `icon${size}.png`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 'image/png');
+    }
+
+    function downloadAllIcons() {
+      let delay = 0;
+      sizes.forEach(size => {
+        setTimeout(() => {
+          downloadIcon(size);
+        }, delay);
+        delay += 300; // Délai de 300ms entre chaque téléchargement
+      });
+    }
+
+    // Charger l'image source
+    window.onload = function() {
+      const img = new Image();
+      
+      img.onload = function() {
+        sourceImage = img;
+        updateStatus('✅ Image chargée, génération des icônes...', 'loading');
+        setTimeout(() => {
+          generateIcons();
+        }, 100);
+      };
+      
+      img.onerror = function() {
+        updateStatus('❌ Erreur: Impossible de charger papposint.webp. Assurez-vous que le fichier est dans le même dossier que ce fichier HTML.', 'error');
+      };
+      
+      // Charger l'image depuis le même répertoire
+      img.src = 'papposint.webp';
+    };
+  </script>
+</body>
+</html>
+
