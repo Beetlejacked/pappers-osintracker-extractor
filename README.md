@@ -31,7 +31,7 @@ Ou utilisez un générateur d'icônes en ligne pour créer ces fichiers.
 
 ## 🎯 Utilisation
 
-1. Naviguez vers une page d'entreprise sur Pappers.fr (ex: https://www.pappers.fr/entreprise/robphil-800332686)
+1. Naviguez vers une page d'entreprise sur Pappers.fr (ex: https://www.pappers.fr/entreprise/test-XXXXXXX)
 2. Cliquez sur l'icône de l'extension dans la barre d'outils Chrome
 3. Cliquez sur le bouton "Extraire les données"
 4. Un aperçu JSON s'affichera
