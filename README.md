@@ -10,6 +10,18 @@ Extension Chrome pour extraire automatiquement les informations des entreprises 
 - ✅ Interface utilisateur simple et intuitive
 - ✅ Aperçu des données avant téléchargement
 
+## ⚠️ Avertissement légal
+
+Cette extension est fournie à des fins éducatives et de recherche uniquement.
+
+L'utilisation de cette extension doit respecter :
+
+- Les conditions d'utilisation de Pappers.fr
+- Les lois applicables sur la protection des données
+- Les droits de propriété intellectuelle
+
+Les utilisateurs sont responsables de l'utilisation qu'ils font des données extraites.
+
 ## 📦 Installation
 
 ### Mode développeur
