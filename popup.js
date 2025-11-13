@@ -7,8 +7,21 @@ document.addEventListener('DOMContentLoaded', () => {
   const status = document.getElementById('status');
   const preview = document.getElementById('preview');
   const jsonPreview = document.getElementById('jsonPreview');
+  const updateNotification = document.getElementById('updateNotification');
+  const latestVersionSpan = document.getElementById('latestVersion');
+  const currentVersionSpan = document.getElementById('currentVersion');
+  const updateBtn = document.getElementById('updateBtn');
+  const dismissUpdateBtn = document.getElementById('dismissUpdateBtn');
+  const versionElement = document.getElementById('version');
   
   let extractedData = null;
+  let updateInfo = null;
+
+  // Afficher la version actuelle
+  if (versionElement) {
+    const manifest = chrome.runtime.getManifest();
+    versionElement.textContent = `v${manifest.version}`;
+  }
 
   // Fonction pour mettre à jour le statut
   function updateStatus(message, type = 'default') {
@@ -794,6 +807,119 @@ document.addEventListener('DOMContentLoaded', () => {
       setTimeout(() => {
         updateStatus('✅ Données extraites avec succès!', 'success');
       }, 2000);
+    }
+  });
+
+  // Lien vers les paramètres
+  const optionsLink = document.getElementById('optionsLink');
+  if (optionsLink) {
+    optionsLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      chrome.runtime.openOptionsPage();
+    });
+  }
+
+  // Fonction pour vérifier les mises à jour
+  async function checkForUpdates() {
+    try {
+      // Récupérer les informations de mise à jour stockées
+      const storedInfo = await new Promise((resolve) => {
+        chrome.runtime.sendMessage({ type: 'GET_UPDATE_INFO' }, (response) => {
+          resolve(response);
+        });
+      });
+
+      if (storedInfo && storedInfo.hasUpdate) {
+        showUpdateNotification(storedInfo);
+        updateInfo = storedInfo;
+      } else {
+        // Vérifier manuellement si pas de données stockées
+        const result = await new Promise((resolve) => {
+          chrome.runtime.sendMessage({ type: 'CHECK_UPDATE' }, (response) => {
+            resolve(response);
+          });
+        });
+
+        if (result && result.hasUpdate) {
+          showUpdateNotification(result);
+          updateInfo = result;
+        }
+      }
+    } catch (error) {
+      console.error('Erreur lors de la vérification des mises à jour:', error);
+    }
+  }
+
+  // Fonction pour afficher la notification de mise à jour
+  function showUpdateNotification(info) {
+    if (!updateNotification || !latestVersionSpan || !currentVersionSpan) {
+      return;
+    }
+
+    latestVersionSpan.textContent = info.latestVersion;
+    currentVersionSpan.textContent = info.currentVersion;
+    updateNotification.style.display = 'block';
+  }
+
+  // Fonction pour masquer la notification
+  function hideUpdateNotification() {
+    if (updateNotification) {
+      updateNotification.style.display = 'none';
+    }
+  }
+
+  // Gestionnaire pour le bouton de téléchargement
+  if (updateBtn) {
+    updateBtn.addEventListener('click', () => {
+      if (updateInfo && updateInfo.downloadUrl) {
+        chrome.tabs.create({ url: updateInfo.downloadUrl });
+        hideUpdateNotification();
+        updateStatus('📥 Redirection vers GitHub...', 'success');
+      } else {
+        // Fallback vers le repository GitHub
+        chrome.tabs.create({ url: 'https://github.com/Beetlejacked/pappers-osintracker-extractor' });
+        hideUpdateNotification();
+      }
+    });
+  }
+
+  // Gestionnaire pour le bouton "Plus tard"
+  if (dismissUpdateBtn) {
+    dismissUpdateBtn.addEventListener('click', () => {
+      hideUpdateNotification();
+      // Masquer la notification pendant 24 heures
+      chrome.storage.local.set({
+        updateDismissed: {
+          timestamp: new Date().toISOString(),
+          version: updateInfo?.latestVersion
+        }
+      });
+    });
+  }
+
+  // Vérifier les mises à jour au chargement du popup
+  // Mais seulement si la notification n'a pas été masquée récemment
+  chrome.storage.local.get(['updateDismissed'], async (result) => {
+    const dismissed = result.updateDismissed;
+    
+    // Vérifier d'abord les mises à jour pour obtenir la version actuelle
+    const updateResult = await new Promise((resolve) => {
+      chrome.runtime.sendMessage({ type: 'GET_UPDATE_INFO' }, (response) => {
+        resolve(response);
+      });
+    });
+    
+    const shouldCheck = !dismissed || 
+                       !updateResult ||
+                       (dismissed.version !== updateResult.latestVersion) ||
+                       (new Date() - new Date(dismissed.timestamp) > 24 * 60 * 60 * 1000);
+    
+    if (shouldCheck) {
+      checkForUpdates();
+    } else if (updateResult && updateResult.hasUpdate) {
+      // Afficher la notification si une mise à jour est disponible et n'a pas été masquée pour cette version
+      showUpdateNotification(updateResult);
+      updateInfo = updateResult;
     }
   });
 });

@@ -1399,6 +1399,51 @@
     });
   }
 
+  // Fonction pour filtrer les données selon les préférences utilisateur
+  function filterDataByPreferences(pageData, preferences) {
+    const filteredData = {
+      url: pageData.url,
+      siren: pageData.siren,
+      nom: pageData.nom,
+      extractedAt: pageData.extractedAt
+    };
+
+    // Mapper les préférences aux propriétés des données
+    const preferenceMap = {
+      'export_activite': 'activite',
+      'export_informations_juridiques': 'informations_juridiques',
+      'export_etablissements': 'etablissements',
+      'export_dirigeants': 'dirigeants',
+      'export_actionnaires': 'actionnaires',
+      'export_documents_juridiques': 'documents_juridiques',
+      'export_annonces_bodacc': 'annonces_bodacc',
+      'export_cartographie': 'cartographie',
+      'export_biens_immobiliers': 'biens_immobiliers'
+    };
+
+    // Ajouter uniquement les données autorisées
+    Object.keys(preferenceMap).forEach(prefKey => {
+      const dataKey = preferenceMap[prefKey];
+      // Par défaut, si la préférence n'existe pas, on l'inclut (rétrocompatibilité)
+      if (preferences[prefKey] !== false && pageData[dataKey] !== undefined) {
+        filteredData[dataKey] = pageData[dataKey];
+      }
+    });
+
+    // Ajouter les métadonnées de cartographie si la cartographie est incluse
+    if (preferences.export_cartographie !== false && pageData.cartographie_source) {
+      filteredData.cartographie_source = pageData.cartographie_source;
+      filteredData.cartographie_timestamp = pageData.cartographie_timestamp;
+    }
+
+    // Toujours inclure apiCalls pour le debug (mais on pourrait aussi le filtrer)
+    if (pageData.apiCalls) {
+      filteredData.apiCalls = pageData.apiCalls;
+    }
+
+    return filteredData;
+  }
+
   // Fonction pour écouter les messages depuis le popup
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     // Utiliser une fonction async pour gérer l'attente
@@ -1407,8 +1452,25 @@
         if (request.action === 'extract') {
           console.log('=== DÉBUT EXTRACTION ===');
           
+          // Charger les préférences utilisateur
+          const preferences = await new Promise((resolve) => {
+            chrome.storage.sync.get({
+              export_activite: true,
+              export_informations_juridiques: true,
+              export_etablissements: true,
+              export_dirigeants: true,
+              export_actionnaires: true,
+              export_documents_juridiques: true,
+              export_annonces_bodacc: true,
+              export_cartographie: true,
+              export_biens_immobiliers: true
+            }, resolve);
+          });
+          
+          console.log('📋 Préférences d\'export:', preferences);
+          
           // Si les données de cartographie ne sont pas encore disponibles, attendre un peu
-          if (!cartographieData) {
+          if (!cartographieData && preferences.export_cartographie !== false) {
             // Attendre un peu pour voir si l'API est appelée automatiquement
             const found = await waitForCartographieAPI(3000);
             
@@ -1434,7 +1496,7 @@
           const hasCartographieData = cartographieData && cartographieData.data && 
                                       (Array.isArray(cartographieData.data.entreprises) || 
                                        Array.isArray(cartographieData.data.personnes));
-          if (!hasCartographieData && pageData.siren) {
+          if (!hasCartographieData && pageData.siren && preferences.export_cartographie !== false) {
             console.log('🔄 Tentative de déclenchement manuel de l\'API avec SIREN:', pageData.siren);
             // Utiliser le SIREN extrait pour déclencher l'API
             const token = apiToken || '97a405f1664a83329a7d89ebf51dc227b90633c4ba4a2575';
@@ -1468,9 +1530,9 @@
           console.log('=== FIN EXTRACTION ===');
           console.log('Données extraites:', pageData);
           
-          // Ajouter les données de cartographie si disponibles
+          // Ajouter les données de cartographie si disponibles et autorisées
           // Les données doivent être stockées telles quelles, sans transformation
-          if (cartographieData && cartographieData.data) {
+          if (preferences.export_cartographie !== false && cartographieData && cartographieData.data) {
             // Copier les données telles quelles (structure complète de l'API)
             pageData.cartographie = JSON.parse(JSON.stringify(cartographieData.data));
             pageData.cartographie_source = cartographieData.url;
@@ -1484,7 +1546,11 @@
               nbPersonnes: pageData.cartographie.personnes?.length || 0
             });
           } else {
-            console.log('⚠️ Aucune donnée de cartographie disponible');
+            if (preferences.export_cartographie === false) {
+              console.log('⚠️ Cartographie désactivée dans les paramètres');
+            } else {
+              console.log('⚠️ Aucune donnée de cartographie disponible');
+            }
             pageData.cartographie = null;
           }
           
@@ -1492,7 +1558,11 @@
           pageData.apiCalls = apiCalls;
           console.log('Nombre d\'appels API interceptés:', apiCalls.length);
           
-          sendResponse({ success: true, data: pageData });
+          // Filtrer les données selon les préférences
+          const filteredData = filterDataByPreferences(pageData, preferences);
+          console.log('📋 Données filtrées selon les préférences:', filteredData);
+          
+          sendResponse({ success: true, data: filteredData });
         } else if (request.action === 'getApiCalls') {
           sendResponse({ success: true, apiCalls: apiCalls, cartographie: cartographieData });
         } else {

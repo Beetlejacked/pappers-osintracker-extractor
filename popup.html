@@ -11,10 +11,22 @@
     <header>
       <img src="icon48.png" alt="Logo" class="logo">
       <h1>PAPPERS OSINT EXTRACTOR</h1>
+      <p class="version" id="version">v1.0.0</p>
     </header>
     
     <div class="status" id="status">
       <p>Prêt à extraire les données</p>
+    </div>
+
+    <div class="update-notification" id="updateNotification" style="display: none;">
+      <div class="update-content">
+        <p class="update-title">🔄 Mise à jour disponible</p>
+        <p class="update-text">Version <span id="latestVersion"></span> disponible (vous avez <span id="currentVersion"></span>)</p>
+        <div class="update-actions">
+          <button id="updateBtn" class="btn btn-update">Télécharger</button>
+          <button id="dismissUpdateBtn" class="btn btn-dismiss">Plus tard</button>
+        </div>
+      </div>
     </div>
 
     <div class="actions">
@@ -39,6 +51,7 @@
 
     <div class="info">
       <p><small>Assurez-vous d'être sur une page d'entreprise Pappers</small></p>
+      <p><small><a href="#" id="optionsLink" class="github-link">⚙️ Paramètres d'export</a></small></p>
       <p><small><a href="https://github.com/Beetlejacked/pappers-osintracker-extractor" target="_blank" class="github-link">GitHub Repository</a></small></p>
     </div>
   </div>

@@ -1,16 +1,18 @@
 {
   "manifest_version": 3,
   "name": "Pappers Info Extractor",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Extension pour extraire les informations des entreprises depuis Pappers.fr",
   "permissions": [
     "activeTab",
     "storage",
-    "scripting"
+    "scripting",
+    "alarms"
   ],
   "host_permissions": [
     "https://www.pappers.fr/*",
-    "https://api.pappers.fr/*"
+    "https://api.pappers.fr/*",
+    "https://api.github.com/*"
   ],
   "content_scripts": [
     {
@@ -37,6 +39,7 @@
     "38": "icon38.png",
     "48": "icon48.png",
     "128": "icon128.png"
-  }
+  },
+  "options_page": "options.html"
 }
 

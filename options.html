@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Paramètres - Pappers Info Extractor</title>
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <img src="icon48.png" alt="Logo" class="logo">
+      <h1>PARAMÈTRES D'EXPORT</h1>
+    </header>
+    
+    <div class="settings-section">
+      <h2>Types de données à exporter</h2>
+      <p class="description">Sélectionnez les types de données que vous souhaitez inclure dans l'export JSON.</p>
+      
+      <div class="checkboxes">
+        <label class="checkbox-label">
+          <input type="checkbox" id="export_activite" checked>
+          <span class="checkbox-text">
+            <strong>Activité</strong>
+            <small>Code APE/NAF et description de l'activité</small>
+          </span>
+        </label>
+        
+        <label class="checkbox-label">
+          <input type="checkbox" id="export_informations_juridiques" checked>
+          <span class="checkbox-text">
+            <strong>Informations juridiques</strong>
+            <small>Forme juridique, capital, date de création, SIREN, SIRET, etc.</small>
+          </span>
+        </label>
+        
+        <label class="checkbox-label">
+          <input type="checkbox" id="export_etablissements" checked>
+          <span class="checkbox-text">
+            <strong>Établissements</strong>
+            <small>Liste des établissements avec SIRET, adresses, statuts</small>
+          </span>
+        </label>
+        
+        <label class="checkbox-label">
+          <input type="checkbox" id="export_dirigeants" checked>
+          <span class="checkbox-text">
+            <strong>Dirigeants</strong>
+            <small>Liste des dirigeants avec nom, prénom, fonction, dates</small>
+          </span>
+        </label>
+        
+        <label class="checkbox-label">
+          <input type="checkbox" id="export_actionnaires" checked>
+          <span class="checkbox-text">
+            <strong>Actionnaires</strong>
+            <small>Liste des actionnaires avec pourcentages et montants</small>
+          </span>
+        </label>
+        
+        <label class="checkbox-label">
+          <input type="checkbox" id="export_documents_juridiques" checked>
+          <span class="checkbox-text">
+            <strong>Documents juridiques</strong>
+            <small>Liste des documents avec liens de téléchargement</small>
+          </span>
+        </label>
+        
+        <label class="checkbox-label">
+          <input type="checkbox" id="export_annonces_bodacc" checked>
+          <span class="checkbox-text">
+            <strong>Annonces BODACC</strong>
+            <small>Toutes les annonces BODACC avec dates et types</small>
+          </span>
+        </label>
+        
+        <label class="checkbox-label">
+          <input type="checkbox" id="export_cartographie" checked>
+          <span class="checkbox-text">
+            <strong>Cartographie</strong>
+            <small>Données de géolocalisation et relations (API interceptée)</small>
+          </span>
+        </label>
+        
+        <label class="checkbox-label">
+          <input type="checkbox" id="export_biens_immobiliers" checked>
+          <span class="checkbox-text">
+            <strong>Biens immobiliers</strong>
+            <small>Liste des biens immobiliers avec adresses, surfaces, valeurs</small>
+          </span>
+        </label>
+      </div>
+    </div>
+    
+    <div class="actions">
+      <button id="saveBtn" class="btn btn-primary">
+        Enregistrer
+      </button>
+      <button id="resetBtn" class="btn btn-secondary">
+        Réinitialiser
+      </button>
+    </div>
+    
+    <div class="status" id="status" style="display: none;">
+      <p id="statusText"></p>
+    </div>
+    
+    <div class="info">
+      <p><small>Les paramètres sont sauvegardés automatiquement dans votre navigateur.</small></p>
+      <p><small><a href="https://github.com/Beetlejacked/pappers-osintracker-extractor" target="_blank" class="github-link">GitHub Repository</a></small></p>
+    </div>
+  </div>
+
+  <script src="options.js"></script>
+</body>
+</html>
+

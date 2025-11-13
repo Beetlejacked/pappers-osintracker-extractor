@@ -42,6 +42,15 @@ header h1 {
   margin: 0;
 }
 
+header .version {
+  font-size: 10px;
+  color: #ffd700;
+  opacity: 0.6;
+  margin-top: 4px;
+  font-weight: 400;
+  letter-spacing: 1px;
+}
+
 .status {
   background: #000;
   padding: 12px;
@@ -180,5 +189,78 @@ header h1 {
 
 .loading p {
   color: #ffd700;
+}
+
+.update-notification {
+  background: #000;
+  border: 2px solid #ffd700;
+  padding: 15px;
+  margin-bottom: 15px;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    border-color: #ffd700;
+  }
+  50% {
+    border-color: #ffed4e;
+  }
+}
+
+.update-content {
+  text-align: center;
+}
+
+.update-title {
+  color: #ffd700;
+  font-size: 14px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 8px;
+}
+
+.update-text {
+  color: #ffd700;
+  font-size: 11px;
+  opacity: 0.9;
+  margin-bottom: 12px;
+  line-height: 1.4;
+}
+
+.update-text span {
+  font-weight: 700;
+  color: #ffd700;
+}
+
+.update-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+
+.btn-update {
+  background: #ffd700;
+  color: #000;
+  border: 1px solid #ffd700;
+  font-weight: 700;
+}
+
+.btn-update:hover {
+  background: #ffed4e;
+  border-color: #ffed4e;
+}
+
+.btn-dismiss {
+  background: #000;
+  color: #ffd700;
+  border: 1px solid #ffd700;
+  opacity: 0.7;
+}
+
+.btn-dismiss:hover {
+  opacity: 1;
+  background: rgba(255, 215, 0, 0.1);
 }
 
