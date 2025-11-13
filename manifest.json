@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Pappers Info Extractor",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Extension pour extraire les informations des entreprises depuis Pappers.fr",
   "permissions": [
     "activeTab",
